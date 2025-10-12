@@ -12,4 +12,11 @@ const transporter = nodemailer.createTransport(
     }
 )
 
+try {
+  const ok = await transporter.verify();
+  console.log("[MAILER] SMTP listo:", ok);
+} catch (err) {
+  console.error("[MAILER] ERROR SMTP:", err);
+}
+
 export default transporter

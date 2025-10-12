@@ -34,8 +34,37 @@ class UserRepository {
     static async getByEmail (email){
         const user = await Users.findOne({email: email})
         return user
-
     }
+
+    static async setResetToken(userId, hashedToken, expiresAt) {
+    return Users.findByIdAndUpdate(
+      userId,
+      { resetPasswordToken: hashedToken, resetPasswordExpires: expiresAt },
+      { new: true }
+    );
+  }
+
+  // === NUEVO: buscar por token válido ===
+  static async findByValidResetToken(hashedToken) {
+    return Users.findOne({
+      resetPasswordToken: hashedToken,
+      resetPasswordExpires: { $gt: new Date() },
+    });
+  }
+
+  // === NUEVO: actualizar password y limpiar token ===
+  static async updatePasswordAndClearToken(userId, newPasswordHash) {
+    return Users.findByIdAndUpdate(
+      userId,
+      {
+        password: newPasswordHash,
+        resetPasswordToken: undefined,
+        resetPasswordExpires: undefined,
+        passwordChangedAt: new Date(),
+      },
+      { new: true }
+    );
+  }
 
 }
 //como es estatico se puede citar asi, sin todo el quilombo de new. 

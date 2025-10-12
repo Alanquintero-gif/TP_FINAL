@@ -137,6 +137,56 @@ class AuthController {
             }
         }
     }
+    static async forgotPassword(req, res) {
+    try {
+      const { email } = req.body || {};
+      await AuthService.forgotPassword(email);
+      return res.json({
+        ok: true,
+        status: 200,
+        message: "If the email exists, a reset link was sent",
+      });
+    } catch (error) {
+      console.error("[forgotPassword]", error);
+      // Misma respuesta genérica para no permitir enumeración
+      return res.json({
+        ok: true,
+        status: 200,
+        message: "If the email exists, a reset link was sent",
+      });
+    }
+  }
+
+  static async validateResetToken(req, res) {
+    try {
+      const { token } = req.params;
+      const valid = await AuthService.validateResetToken(token);
+      if (!valid) {
+        return res.status(400).json({ valid: false, message: "Invalid or expired token" });
+      }
+      return res.json({ valid: true });
+    } catch (error) {
+      console.error("[validateResetToken]", error);
+      return res.status(500).json({ valid: false, message: "Server error" });
+    }
+  }
+
+  static async resetPassword(req, res) {
+    try {
+      const { token, password } = req.body || {};
+      await AuthService.resetPassword(token, password);
+      return res.json({ ok: true, status: 200, message: "Password updated successfully" });
+    } catch (error) {
+      console.error("[resetPassword]", error);
+      return res.status(error.status || 500).json({
+        ok: false,
+        status: error.status || 500,
+        message: error.message || "Server error",
+      });
+    }
+  }
+
+
 }
 
 

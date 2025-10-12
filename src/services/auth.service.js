@@ -4,6 +4,17 @@ import { ServerError } from "../utils/customError.utils.js"
 import jwt from 'jsonwebtoken'
 import bcrypt from 'bcrypt'
 import ENVIRONMENT from "../config/environment.config.js"
+import { randomBytes, createHash } from "node:crypto";
+
+
+const TOKEN_BYTES = 32;
+const TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hora
+
+function buildResetUrl(token) {
+  // FRONT_RESET_PASSWORD_URL debe estar en tu .env
+  return `${ENVIRONMENT.FRONT_RESET_PASSWORD_URL}?token=${token}`;
+}
+
 
 class AuthService {
     static async register(username, password, email) {
@@ -103,6 +114,60 @@ class AuthService {
         }
 
     }
+
+    static async forgotPassword(email) {
+    if (!email) return;
+
+    const user = await UserRepository.getByEmail(email);
+    // Respuesta siempre genérica; no filtramos existencia
+    if (!user) return;
+
+    // Token aleatorio (no JWT)
+    const rawToken = randomBytes(TOKEN_BYTES).toString("hex");
+    const hashedToken = createHash("sha256").update(rawToken).digest("hex");
+    const expiresAt = new Date(Date.now() + TOKEN_TTL_MS);
+
+    await UserRepository.setResetToken(user._id, hashedToken, expiresAt);
+
+    const resetUrl = buildResetUrl(rawToken);
+    await transporter.sendMail({
+      from: "ahptpgh@gmail.com",
+      to: user.email,
+      subject: "Reset your password",
+      html: `
+        <p>Hi ${user.name || ""},</p>
+        <p>You requested to reset your password. Click the link below to set a new one:</p>
+        <p><a href="${resetUrl}">${resetUrl}</a></p>
+        <p>This link expires in 1 hour. If you didn't request it, you can ignore this email.</p>
+      `,
+    });
+  }
+
+  static async validateResetToken(token) {
+    if (!token) return false;
+    const hashed = createHash("sha256").update(token).digest("hex");
+    const user = await UserRepository.findByValidResetToken(hashed);
+    return !!user;
+  }
+
+  static async resetPassword(token, newPassword) {
+    if (!token || !newPassword) {
+      const err = new Error("Token and password are required");
+      err.status = 400;
+      throw err;
+    }
+
+    const hashed = createHash("sha256").update(token).digest("hex");
+    const user = await UserRepository.findByValidResetToken(hashed);
+    if (!user) {
+      const err = new Error("Invalid or expired token");
+      err.status = 400;
+      throw err;
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+    await UserRepository.updatePasswordAndClearToken(user._id, passwordHash);
+  }
 }
 
 export default AuthService
