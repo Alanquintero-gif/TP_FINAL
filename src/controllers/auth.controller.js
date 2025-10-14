@@ -4,10 +4,7 @@ import { ServerError } from "../utils/customError.utils.js"
 class AuthController {
     static async register(request, response) {
         try {
-            /* 
-            Recibiremos un username, email, password
-            Validar los 3 campos
-            */
+
             const {
                 username, 
                 email, 
@@ -68,9 +65,7 @@ class AuthController {
         try{
             const {email, password} = request.body
 
-            /* 
-            - Validar que el email y password sean validas
-            */
+
             const { authorization_token } = await AuthService.login(email, password)
             return response.json({
                 ok: true,
@@ -148,7 +143,7 @@ class AuthController {
       });
     } catch (error) {
       console.error("[forgotPassword]", error);
-      // Misma respuesta genérica para no permitir enumeración
+      
       return res.json({
         ok: true,
         status: 200,
