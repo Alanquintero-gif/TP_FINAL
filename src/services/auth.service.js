@@ -135,10 +135,10 @@ class AuthService {
       to: user.email,
       subject: "Reset your password",
       html: `
-        <p>Hi ${user.name || ""},</p>
-        <p>You requested to reset your password. Click the link below to set a new one:</p>
+        <p>Hola ${user.name || ""},</p>
+        <p>Para cambiar tu contraseña, selecciona el link de abajo:</p>
         <p><a href="${resetUrl}">${resetUrl}</a></p>
-        <p>This link expires in 1 hour. If you didn't request it, you can ignore this email.</p>
+        <p>Este link expira en una hora. Si no querés modificar tu contraseña, podés ignorar este mail.</p>
       `,
     });
   }
