@@ -133,7 +133,7 @@ class AuthService {
     await transporter.sendMail({
       from: "ahptpgh@gmail.com",
       to: user.email,
-      subject: "Reset your password",
+      subject: "Cambio de contraseña",
       html: `
         <p>Hola ${user.name || ""},</p>
         <p>Para cambiar tu contraseña, selecciona el link de abajo:</p>
