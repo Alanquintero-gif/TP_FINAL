@@ -3,7 +3,6 @@ import Users from "../models/Users.model.js"
 
 class UserRepository {
     static async createUser(name, email, password){
-        //Logica de interaccion con la DB para crear el usuario
         const result =  await Users.insertOne({
             name: name,
             email: email,
@@ -12,7 +11,6 @@ class UserRepository {
         return result
     }
     static async getAll (){
-        //find es un metodo para buscar a todos. 
         const users = await Users. find ()
         return users
     }
@@ -44,7 +42,7 @@ class UserRepository {
     );
   }
 
-  // === NUEVO: buscar por token válido ===
+  
   static async findByValidResetToken(hashedToken) {
     return Users.findOne({
       resetPasswordToken: hashedToken,
@@ -52,7 +50,7 @@ class UserRepository {
     });
   }
 
-  // === NUEVO: actualizar password y limpiar token ===
+  
   static async updatePasswordAndClearToken(userId, newPasswordHash) {
     return Users.findByIdAndUpdate(
       userId,
@@ -67,7 +65,6 @@ class UserRepository {
   }
 
 }
-//como es estatico se puede citar asi, sin todo el quilombo de new. 
 
 
 export default UserRepository
