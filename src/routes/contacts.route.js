@@ -1,4 +1,3 @@
-// src/routes/contacts.route.js
 import { Router } from 'express'
 import authMiddleware from '../middleware/auth.middleware.js'
 import { listContacts, createContact, deleteContact } from '../controllers/contacts.controller.js'

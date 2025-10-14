@@ -11,7 +11,6 @@ const TOKEN_BYTES = 32;
 const TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hora
 
 function buildResetUrl(token) {
-  // FRONT_RESET_PASSWORD_URL debe estar en tu .env
   return `${ENVIRONMENT.FRONT_RESET_PASSWORD_URL}?token=${token}`;
 }
 
@@ -19,18 +18,15 @@ function buildResetUrl(token) {
 class AuthService {
     static async register(username, password, email) {
 
-        //Verificar que el usuario no este repido
-        //  - .getByEmail en UserRepository
+        
 
         const user_found = await UserRepository.getByEmail(email)
         if (user_found) {
             throw new ServerError(400, 'Email ya en uso')
         }
 
-        //Encriptar la contraseña
         const password_hashed = await bcrypt.hash(password, 12)
 
-        //guardarlo en la DB
         const user_created = await UserRepository.createUser(username, email, password_hashed)
         const verification_token = jwt.sign(
             {
@@ -39,7 +35,6 @@ class AuthService {
             },
             ENVIRONMENT.JWT_SECRET_KEY
         )
-        //Enviar un mail de verificacion
         await transporter.sendMail({
             from: 'ahptpgh@gmail.com',
             to: email,
@@ -75,14 +70,7 @@ class AuthService {
     }
 
     static async login(email, password){
-        /* 
-        - Buscar por email y guardar en una variable
-            - No se encontro: Tiramos error 404 'Email no registrado' / 'El email o la contraseña son invalidos'
-        - Usamos bcrypt.compare para checkear que la password recibida sea igual al hash guardado en DB
-            - En caso de que no sean iguales: 401 (Unauthorized) 'Contraseña invalida' / 'El email o la contraseña son invalidos'
-        - Generar el authorization_token con los datos que coinsideremos importantes para una sesion: (name, email, rol, created_at) (NO PASAR DATOS SENSIBLES)
-        - Retornar el token
-        */
+
 
         const user = await UserRepository.getByEmail(email)
         if(!user){
@@ -91,7 +79,6 @@ class AuthService {
         if(user.verified_email === false){
             throw new ServerError(401, 'Email no verificado')
         }
-        /* Permite saber si cierto valor es igual a otro cierto valor encriptado */
         const is_same_password = await bcrypt.compare(password, user.password)
         if(!is_same_password){
             throw new ServerError(401, 'Contraseña incorrecta')
@@ -119,10 +106,8 @@ class AuthService {
     if (!email) return;
 
     const user = await UserRepository.getByEmail(email);
-    // Respuesta siempre genérica; no filtramos existencia
     if (!user) return;
 
-    // Token aleatorio (no JWT)
     const rawToken = randomBytes(TOKEN_BYTES).toString("hex");
     const hashedToken = createHash("sha256").update(rawToken).digest("hex");
     const expiresAt = new Date(Date.now() + TOKEN_TTL_MS);

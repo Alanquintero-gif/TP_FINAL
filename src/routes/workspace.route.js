@@ -7,10 +7,8 @@ import WorkspaceController from '../controllers/workspace.controller.js'
 
 const workspace_router = express.Router();
 
-// GET todos los workspaces
 workspace_router.get('/', WorkspaceController.GetAll);
 
-// GET workspace por ID
 workspace_router.get('/:workspace_id', WorkspaceController.GetById );
 
 workspace_router.post('/', WorkspaceController.post)

@@ -1,4 +1,3 @@
-// src/routes/conversations.route.js
 import { Router } from 'express'
 import authMiddleware from '../middleware/auth.middleware.js'
 import { listMyConversations, openConversation } from '../controllers/conversations.controller.js'
