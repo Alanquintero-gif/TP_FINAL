@@ -1,53 +1,94 @@
-import Conversation from '../models/Conversation.model.js'
-import Message from '../models/Message.model.js'
-import currentUserId from '../utils/currentUserId.js'
+// controllers/messages.controller.js
+import Message from '../models/Message.model.js';
+import Conversation from '../models/Conversation.model.js';
 
-export const listMessages = async (req, res, next) => {
-  try {
-    const userId = currentUserId(req)
-    const { id } = req.params // conversationId
-    const conv = await Conversation.findById(id)
-    if (!conv || !conv.participants.map(String).includes(String(userId))) {
-      return res.status(403).json({ message: 'Forbidden' })
-    }
-    const msgs = await Message.find({ conversationId: id, deletedAt: null }).sort({ createdAt: 1 })
-    res.json(msgs)
-  } catch (err) { next(err) }
+// DTO helper: agrega fromMe en base al usuario autenticado
+function toDTO(msg, meId) {
+  return {
+    _id: msg._id,
+    text: msg.text,
+    createdAt: msg.createdAt,
+    senderId: msg.senderId,
+    conversationId: msg.conversationId,
+    fromMe: String(msg.senderId) === String(meId), // 👈 clave para el front
+  };
 }
 
-export const sendMessage = async (req, res, next) => {
+// GET /api/messages/:conversationId
+export async function listMessages(req, res) {
   try {
-    const userId = currentUserId(req)
-    const { id } = req.params // conversationId
-    const { text } = req.body
+    const { id: userId } = req.user;
+    const { id: conversationId } = req.params;
 
-    const conv = await Conversation.findById(id)
-    if (!conv || !conv.participants.map(String).includes(String(userId))) {
-      return res.status(403).json({ message: 'Forbidden' })
+    // (Opcional) validar que el user participe de la conversación
+    const conv = await Conversation.findById(conversationId);
+    if (!conv) return res.status(404).json({ ok: false, message: 'Conversation not found' });
+    if (!conv.participants.some(p => String(p) === String(userId))) {
+      return res.status(403).json({ ok: false, message: 'Forbidden' });
     }
 
-    const msg = await Message.create({
-      conversationId: id,
-      senderId: userId,
-      text,
-      status: 'no-visto'
-    })
-    await Conversation.findByIdAndUpdate(id, { lastMessageAt: new Date() })
-    res.status(201).json(msg)
-  } catch (err) { next(err) }
+    const items = await Message.find({ conversationId })
+      .sort({ createdAt: 1 });
+
+    const data = items.map(m => toDTO(m, userId));
+    res.json({ ok: true, data });
+  } catch (e) {
+    console.error('[messages:list]', e);
+    res.status(500).json({ ok: false, message: 'Server error' });
+  }
 }
 
-export const deleteMessage = async (req, res, next) => {
+// POST /api/messages/:conversationId
+export async function sendMessage(req, res) {
   try {
-    const userId = currentUserId(req)
-    const { id } = req.params // messageId
-    const msg = await Message.findById(id)
-    if (!msg) return res.status(404).json({ message: 'Not found' })
+    const { id: userId } = req.user;
+    const { id: conversationId } = req.params;
+    const { text } = req.body || {};
+    if (!text?.trim()) return res.status(400).json({ ok: false, message: 'Texto requerido' });
+
+    // (Opcional) validar participante
+    const conv = await Conversation.findById(conversationId);
+    if (!conv) return res.status(404).json({ ok: false, message: 'Conversation not found' });
+    if (!conv.participants.some(p => String(p) === String(userId))) {
+      return res.status(403).json({ ok: false, message: 'Forbidden' });
+    }
+
+    const created = await Message.create({
+      conversationId,
+      senderId: userId,     // 👈 marca que el emisor soy yo
+      text: text.trim()
+    });
+
+    // (Opcional) actualizar lastMessage en la conversación
+    conv.lastMessage = { lastText: text.trim(), createdAt: created.createdAt };
+    conv.lastMessageAt = created.createdAt;
+    await conv.save();
+
+    res.json({ ok: true, data: toDTO(created, userId) });
+  } catch (e) {
+    console.error('[messages:send]', e);
+    res.status(500).json({ ok: false, message: 'Server error' });
+  }
+}
+
+// DELETE /api/messages/:messageId
+export async function deleteMessage(req, res) {
+  try {
+    const { id: userId } = req.user;
+    const { id: messageId } = req.params;
+
+    const msg = await Message.findById(messageId);
+    if (!msg) return res.status(404).json({ ok: false, message: 'Message not found' });
+
+    // (Opcional) sólo autor puede borrar
     if (String(msg.senderId) !== String(userId)) {
-      return res.status(403).json({ message: 'Forbidden' })
+      return res.status(403).json({ ok: false, message: 'Forbidden' });
     }
-    msg.deletedAt = new Date()
-    await msg.save()
-    res.status(204).end()
-  } catch (err) { next(err) }
+
+    await msg.deleteOne();
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[messages:delete]', e);
+    res.status(500).json({ ok: false, message: 'Server error' });
+  }
 }

@@ -1,11 +1,11 @@
-import { Schema, model, Types } from 'mongoose'
+// Ejemplo de schema (ajustá nombres si difieren)
+import { Schema, model } from 'mongoose';
 
 const MessageSchema = new Schema({
-  conversationId: { type: Types.ObjectId, ref: 'Conversation', required: true },
-  senderId:       { type: Types.ObjectId, ref: 'User', required: true },
-  text:           { type: String, required: true },
-  status:         { type: String, enum: ['no-recibido','no-visto','visto'], default: 'no-visto' },
-  deletedAt:      { type: Date, default: null }, // soft delete
-}, { timestamps: true })
+  conversationId: { type: Schema.Types.ObjectId, ref: 'Conversation', required: true },
+  senderId:      { type: Schema.Types.ObjectId, ref: 'Users', required: true }, // 👈 quien envía
+  text:          { type: String, required: true },
+}, { timestamps: true });
 
-export default model('Message', MessageSchema)
+export default model('Message', MessageSchema);
+

@@ -1,28 +1,40 @@
 import Contact from '../models/Contact.model.js'
 import currentUserId from '../utils/currentUserId.js'
 
-export const listContacts = async (req, res, next) => {
+export async function listContacts(req, res) {
   try {
-    const userId = currentUserId(req)
-    const items = await Contact.find({ ownerUserId: userId }).sort({ createdAt: -1 })
-    res.json(items)
-  } catch (err) { next(err) }
+    const ownerUserId = req.user.id;
+    const contacts = await Contact.find({ ownerUserId }).sort({ createdAt: -1 });
+    res.json({ ok: true, data: contacts });
+  } catch (e) {
+    console.error("[contacts:list]", e);
+    res.status(500).json({ ok: false, message: "Server error" });
+  }
 }
 
-export const createContact = async (req, res, next) => {
+export async function createContact(req, res) {
   try {
-    const userId = currentUserId(req)
-    const { name, avatar } = req.body
-    const created = await Contact.create({ ownerUserId: userId, name, avatar })
-    res.status(201).json(created)
-  } catch (err) { next(err) }
+    const ownerUserId = req.user.id;
+    const { name, avatar } = req.body || {};
+    if (!name?.trim()) return res.status(400).json({ ok: false, message: "Nombre requerido" });
+
+    const created = await Contact.create({ ownerUserId, name: name.trim(), avatar: avatar || "" });
+    res.json({ ok: true, data: created });
+  } catch (e) {
+    console.error("[contacts:create]", e);
+    res.status(500).json({ ok: false, message: "Server error" });
+  }
 }
 
-export const deleteContact = async (req, res, next) => {
+export async function deleteContact(req, res) {
   try {
-    const userId = currentUserId(req)
-    const { id } = req.params
-    await Contact.deleteOne({ _id: id, ownerUserId: userId })
-    res.status(204).end()
-  } catch (err) { next(err) }
+    const ownerUserId = req.user.id;
+    const { id } = req.params;
+    const doc = await Contact.findOneAndDelete({ _id: id, ownerUserId });
+    if (!doc) return res.status(404).json({ ok: false, message: "No encontrado" });
+    res.json({ ok: true });
+  } catch (e) {
+    console.error("[contacts:delete]", e);
+    res.status(500).json({ ok: false, message: "Server error" });
+  }
 }
