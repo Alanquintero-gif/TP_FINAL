@@ -92,3 +92,34 @@ export async function deleteMessage(req, res) {
     res.status(500).json({ ok: false, message: 'Server error' });
   }
 }
+
+
+
+export const updateMessage = async (req, res) => {
+  try {
+    const messageId = req.params.id;
+    const { text } = req.body;
+    const userId = req.user.id;
+
+    if (!text) {
+      return res.status(400).json({ ok: false, message: 'El texto no puede estar vacío' });
+    }
+
+    const message = await Message.findById(messageId);
+    if (!message) {
+      return res.status(404).json({ ok: false, message: 'Mensaje no encontrado' });
+    }
+
+    if (message.sender.toString() !== userId) {
+      return res.status(403).json({ ok: false, message: 'No puedes editar un mensaje que no es tuyo' });
+    }
+
+    message.text = text;
+    await message.save();
+
+    return res.status(200).json({ ok: true, message: 'Mensaje actualizado correctamente', data: message });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ ok: false, message: 'Error interno del servidor' });
+  }
+};
