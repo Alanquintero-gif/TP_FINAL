@@ -20,21 +20,28 @@ export async function listMessages(req, res) {
     const { id: userId } = req.user;
     const { id: conversationId } = req.params;
 
-    // (Opcional) validar que el user participe de la conversación
+    // validar que el usuario participe de la conversación
     const conv = await Conversation.findById(conversationId);
-    if (!conv) return res.status(404).json({ ok: false, message: 'Conversation not found' });
+    if (!conv) {
+      return res
+        .status(404)
+        .json({ ok: false, message: 'Conversation not found' });
+    }
+
     if (!conv.participants.some(p => String(p) === String(userId))) {
-      return res.status(403).json({ ok: false, message: 'Forbidden' });
+      return res
+        .status(403)
+        .json({ ok: false, message: 'Forbidden' });
     }
 
     const items = await Message.find({ conversationId })
       .sort({ createdAt: 1 });
 
     const data = items.map(m => toDTO(m, userId));
-    res.json({ ok: true, data });
+    return res.json({ ok: true, data });
   } catch (e) {
     console.error('[messages:list]', e);
-    res.status(500).json({ ok: false, message: 'Server error' });
+    return res.status(500).json({ ok: false, message: 'Server error' });
   }
 }
 
@@ -44,30 +51,90 @@ export async function sendMessage(req, res) {
     const { id: userId } = req.user;
     const { id: conversationId } = req.params;
     const { text } = req.body || {};
-    if (!text?.trim()) return res.status(400).json({ ok: false, message: 'Texto requerido' });
 
-    // (Opcional) validar participante
+    if (!text?.trim()) {
+      return res
+        .status(400)
+        .json({ ok: false, message: 'Texto requerido' });
+    }
+
+    // validar participante
     const conv = await Conversation.findById(conversationId);
-    if (!conv) return res.status(404).json({ ok: false, message: 'Conversation not found' });
+    if (!conv) {
+      return res
+        .status(404)
+        .json({ ok: false, message: 'Conversation not found' });
+    }
+
     if (!conv.participants.some(p => String(p) === String(userId))) {
-      return res.status(403).json({ ok: false, message: 'Forbidden' });
+      return res
+        .status(403)
+        .json({ ok: false, message: 'Forbidden' });
     }
 
     const created = await Message.create({
       conversationId,
-      senderId: userId,     // 👈 marca que el emisor soy yo
-      text: text.trim()
+      senderId: userId, // 👈 coincide con tu schema real
+      text: text.trim(),
     });
 
-    // (Opcional) actualizar lastMessage en la conversación
-    conv.lastMessage = { lastText: text.trim(), createdAt: created.createdAt };
+    // actualizar "último mensaje" en la conversación (opcional pero bueno)
+    conv.lastMessage = {
+      lastText: text.trim(),
+      createdAt: created.createdAt,
+    };
     conv.lastMessageAt = created.createdAt;
     await conv.save();
 
-    res.json({ ok: true, data: toDTO(created, userId) });
+    return res.json({ ok: true, data: toDTO(created, userId) });
   } catch (e) {
     console.error('[messages:send]', e);
-    res.status(500).json({ ok: false, message: 'Server error' });
+    return res.status(500).json({ ok: false, message: 'Server error' });
+  }
+}
+
+// PUT /api/messages/:messageId
+// body: { text }
+export async function updateMessage(req, res) {
+  try {
+    const { id: userId } = req.user;        // viene del authMiddleware
+    const { id: messageId } = req.params;   // mensaje a editar
+    const { text } = req.body || {};
+
+    if (!text || !text.trim()) {
+      return res
+        .status(400)
+        .json({ ok: false, message: 'El texto no puede estar vacío' });
+    }
+
+    const message = await Message.findById(messageId);
+    if (!message) {
+      return res
+        .status(404)
+        .json({ ok: false, message: 'Mensaje no encontrado' });
+    }
+
+    // sólo el autor puede editar
+    if (String(message.senderId) !== String(userId)) {
+      return res
+        .status(403)
+        .json({ ok: false, message: 'No puedes editar un mensaje que no es tuyo' });
+    }
+
+    // actualizar el texto y guardar
+    message.text = text.trim();
+    await message.save();
+
+    // devolvemos el mensaje actualizado en el mismo formato DTO
+    return res.json({
+      ok: true,
+      data: toDTO(message, userId),
+    });
+  } catch (error) {
+    console.error('[messages:update]', error);
+    return res
+      .status(500)
+      .json({ ok: false, message: 'Error interno del servidor' });
   }
 }
 
@@ -78,48 +145,25 @@ export async function deleteMessage(req, res) {
     const { id: messageId } = req.params;
 
     const msg = await Message.findById(messageId);
-    if (!msg) return res.status(404).json({ ok: false, message: 'Message not found' });
+    if (!msg) {
+      return res
+        .status(404)
+        .json({ ok: false, message: 'Message not found' });
+    }
 
-    // (Opcional) sólo autor puede borrar
+    // sólo autor puede borrar
     if (String(msg.senderId) !== String(userId)) {
-      return res.status(403).json({ ok: false, message: 'Forbidden' });
+      return res
+        .status(403)
+        .json({ ok: false, message: 'Forbidden' });
     }
 
     await msg.deleteOne();
-    res.json({ ok: true });
+    return res.json({ ok: true });
   } catch (e) {
     console.error('[messages:delete]', e);
-    res.status(500).json({ ok: false, message: 'Server error' });
+    return res
+      .status(500)
+      .json({ ok: false, message: 'Server error' });
   }
 }
-
-
-
-export const updateMessage = async (req, res) => {
-  try {
-    const messageId = req.params.id;
-    const { text } = req.body;
-    const userId = req.user.id;
-
-    if (!text) {
-      return res.status(400).json({ ok: false, message: 'El texto no puede estar vacío' });
-    }
-
-    const message = await Message.findById(messageId);
-    if (!message) {
-      return res.status(404).json({ ok: false, message: 'Mensaje no encontrado' });
-    }
-
-    if (message.sender.toString() !== userId) {
-      return res.status(403).json({ ok: false, message: 'No puedes editar un mensaje que no es tuyo' });
-    }
-
-    message.text = text;
-    await message.save();
-
-    return res.status(200).json({ ok: true, message: 'Mensaje actualizado correctamente', data: message });
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ ok: false, message: 'Error interno del servidor' });
-  }
-};
