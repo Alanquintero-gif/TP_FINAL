@@ -1,4 +1,3 @@
-// Ejemplo de schema (ajustá nombres si difieren)
 import { Schema, model } from 'mongoose';
 
 const MessageSchema = new Schema({

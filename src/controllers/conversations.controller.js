@@ -1,12 +1,8 @@
-// src/controllers/conversations.controller.js
 import Conversation from '../models/Conversation.model.js';
 import Message from '../models/Message.model.js';
 import defaultGreetings from '../config/defaultGreetings.js';
 
-/**
- * Estructura de salida homogénea para el front.
- * Conserva los campos que ya venís usando (lastMessage, lastMessageAt, etc.).
- */
+
 function toDTO(conv) {
   return {
     _id: conv._id,
@@ -24,22 +20,17 @@ function toDTO(conv) {
   };
 }
 
-/**
- * GET /api/conversations
- * Lista conversaciones del usuario autenticado, ordenadas por última actividad.
- */
+
 export async function listMyConversations(req, res) {
   try {
     const { id: meId } = req.user;
 
-    // Traemos todas las conversaciones donde participa el usuario
     const items = await Conversation.find({
       participants: { $in: [meId] },
     })
       .sort({ lastMessageAt: -1, updatedAt: -1 })
       .lean();
 
-    // Si alguna no tiene lastMessage (p. ej., vieja), intentamos completar con el último Message
     const withFallback = await Promise.all(
       items.map(async (c) => {
         if (!c.lastMessage) {
@@ -63,12 +54,7 @@ export async function listMyConversations(req, res) {
   }
 }
 
-/**
- * POST /api/conversations
- * Body: { participantId }
- * Abre (o crea) una conversación 1:1 entre el usuario y participantId.
- * Si se crea por primera vez y existe un greeting en defaultGreetings, lo inserta como primer mensaje del contacto.
- */
+
 export async function openConversation(req, res) {
   try {
     const { id: meId } = req.user;
@@ -81,14 +67,11 @@ export async function openConversation(req, res) {
       return res.status(400).json({ ok: false, message: 'No podés abrir chat con vos mismo' });
     }
 
-    // ¿Ya existe una 1:1 entre ambos?
     let conv = await Conversation.findOne({
       isGroup: false,
-      // $all + $size=2 asegura que sean exactamente esos dos participantes
       participants: { $all: [meId, participantId], $size: 2 },
     });
 
-    // Si no existe, la creamos
     if (!conv) {
       conv = await Conversation.create({
         participants: [meId, participantId],
@@ -97,7 +80,6 @@ export async function openConversation(req, res) {
         lastMessage: null,
       });
 
-      // Si hay saludo predeterminado para este contacto, lo insertamos
       const greet = defaultGreetings[String(participantId)];
       if (greet && greet.trim()) {
         const created = await Message.create({
@@ -106,7 +88,6 @@ export async function openConversation(req, res) {
           text: greet.trim(),
         });
 
-        // Actualizamos campos de "último mensaje" en la conversación
         conv.lastMessage = { lastText: greet.trim(), createdAt: created.createdAt };
         conv.lastMessageAt = created.createdAt;
         await conv.save();

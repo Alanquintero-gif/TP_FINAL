@@ -1,8 +1,6 @@
-// controllers/messages.controller.js
 import Message from '../models/Message.model.js';
 import Conversation from '../models/Conversation.model.js';
 
-// DTO helper: agrega fromMe en base al usuario autenticado
 function toDTO(msg, meId) {
   return {
     _id: msg._id,
@@ -10,17 +8,15 @@ function toDTO(msg, meId) {
     createdAt: msg.createdAt,
     senderId: msg.senderId,
     conversationId: msg.conversationId,
-    fromMe: String(msg.senderId) === String(meId), // 👈 clave para el front
+    fromMe: String(msg.senderId) === String(meId), 
   };
 }
 
-// GET /api/messages/:conversationId
 export async function listMessages(req, res) {
   try {
     const { id: userId } = req.user;
     const { id: conversationId } = req.params;
 
-    // validar que el usuario participe de la conversación
     const conv = await Conversation.findById(conversationId);
     if (!conv) {
       return res
@@ -45,7 +41,6 @@ export async function listMessages(req, res) {
   }
 }
 
-// POST /api/messages/:conversationId
 export async function sendMessage(req, res) {
   try {
     const { id: userId } = req.user;
@@ -58,7 +53,6 @@ export async function sendMessage(req, res) {
         .json({ ok: false, message: 'Texto requerido' });
     }
 
-    // validar participante
     const conv = await Conversation.findById(conversationId);
     if (!conv) {
       return res
@@ -74,11 +68,10 @@ export async function sendMessage(req, res) {
 
     const created = await Message.create({
       conversationId,
-      senderId: userId, // 👈 coincide con tu schema real
+      senderId: userId, 
       text: text.trim(),
     });
 
-    // actualizar "último mensaje" en la conversación (opcional pero bueno)
     conv.lastMessage = {
       lastText: text.trim(),
       createdAt: created.createdAt,
@@ -93,12 +86,11 @@ export async function sendMessage(req, res) {
   }
 }
 
-// PUT /api/messages/:messageId
-// body: { text }
+
 export async function updateMessage(req, res) {
   try {
-    const { id: userId } = req.user;        // viene del authMiddleware
-    const { id: messageId } = req.params;   // mensaje a editar
+    const { id: userId } = req.user;        
+    const { id: messageId } = req.params;   
     const { text } = req.body || {};
 
     if (!text || !text.trim()) {
@@ -114,18 +106,15 @@ export async function updateMessage(req, res) {
         .json({ ok: false, message: 'Mensaje no encontrado' });
     }
 
-    // sólo el autor puede editar
     if (String(message.senderId) !== String(userId)) {
       return res
         .status(403)
         .json({ ok: false, message: 'No puedes editar un mensaje que no es tuyo' });
     }
 
-    // actualizar el texto y guardar
     message.text = text.trim();
     await message.save();
 
-    // devolvemos el mensaje actualizado en el mismo formato DTO
     return res.json({
       ok: true,
       data: toDTO(message, userId),
@@ -138,7 +127,6 @@ export async function updateMessage(req, res) {
   }
 }
 
-// DELETE /api/messages/:messageId
 export async function deleteMessage(req, res) {
   try {
     const { id: userId } = req.user;
@@ -151,7 +139,6 @@ export async function deleteMessage(req, res) {
         .json({ ok: false, message: 'Message not found' });
     }
 
-    // sólo autor puede borrar
     if (String(msg.senderId) !== String(userId)) {
       return res
         .status(403)
